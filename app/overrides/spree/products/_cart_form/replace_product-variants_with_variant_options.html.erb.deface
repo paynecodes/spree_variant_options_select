@@ -1,0 +1,2 @@
+<!-- replace '#product-variants' -->
+<%= render :partial => 'spree/products/variant_options' %>

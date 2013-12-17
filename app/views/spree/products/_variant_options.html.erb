@@ -1,0 +1,39 @@
+<% if @product.has_variants? %>
+
+<% index = 0 %>
+
+<div id="product-variants" class="medium-6 columns">
+    <h2><%= Spree.t(:options) %></h2>
+    <% @product.grouped_option_values.each do |type, values| %>
+        <div id="<%= dom_id(type) %>" class="variant-options index-<%= index %>">
+
+        <h6 class="variant-option-type"><%= label_tag 'option-value-name', Spree.t(:select_a, :index => index + 1, :name => type.presentation.capitalize) %></h6>
+
+        <ul class="variant-option-values inline-list" data-group="<%= index %>">
+            <% values.sort_by(&:position).each do |value| %>
+                <% classes = ["option-value"] %>
+                <% unless (variants = @product.variants_for_option_value(value)).empty? %>
+                    <% classes << ( variants.any? { |v| v.in_stock? } ? "in-stock" : "out-of-stock" ) if index == 0 %>
+                    <%
+                        classes = classes.join(" ")
+                        classes = classes + " " + "button tiny radius"
+                    %>
+                    <% variant_ids = [] %>
+                    <% variants.each do |v| %>
+                        <% (variant_ids ||= []) << v.id %>
+                    <% end %>
+                    <% index == 0 ? (disabled = false) : (disabled = true) %>
+                    <li><%= button_tag(value.presentation, { :class => classes, :disabled => disabled, :type => 'button', :data => {products: variant_ids, group: index} }) %></li>
+                <% end %>
+            <% end %>
+            <!--<li><%= link_to "", "#clear", :class => "icon-remove clear-button clear-index-#{index}" %></li>-->
+        </ul>
+
+        </div>
+        <% index += 1 %>
+    <% end %>
+</div>
+
+<%= hidden_field_tag "products[#{@product.id}]", "", :id => "variant_id", :class => "hidden" %>
+
+<% end %>
