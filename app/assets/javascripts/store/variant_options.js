@@ -106,17 +106,21 @@
     }
 
     function updateMatrix($elem, group_index, remove) {
+        var common_variant_id = false;
+
         if (typeof remove == 'undefined' || remove === false) {
             variantMatrix[group_index] = $elem.data('products');
         } else variantMatrix.splice(group_index, 1);
 
-        // If the matrix contains all the values it needs, display the photo
+        // If the matrix contains all the values it needs,
+        // find the common variant id, update the photo, and update the hidden input
         if (variantMatrix.length === $group.length) {
-            var variant_id = getCommonMatrixId();
-            enableButton($add_to_cart);
-            findPhoto(variant_id);
-            updateVariantInput(variant_id);
-        } else disableButton($add_to_cart);
+            common_variant_id = getCommonMatrixId();
+            findPhoto(common_variant_id);
+            updateVariantInput(common_variant_id);
+        }
+
+        updateAddToCartButton(common_variant_id);
     }
 
     function getCommonMatrixId() {
@@ -129,6 +133,11 @@
         } else intersect = variantMatrix;
 
         return intersect[0];
+    }
+
+    function updateAddToCartButton(common_variant_id) {
+        if (common_variant_id) enableButton($add_to_cart);
+        else disableButton($add_to_cart);
     }
 
     function enableButton($btn) {
