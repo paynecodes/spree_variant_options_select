@@ -42,13 +42,16 @@
         $variant_input = $('#variant_id');
         $add_to_cart = $('#add-to-cart-button');
 
-        disableButton($add_to_cart);
+        if ($group.length) {
+            disableButton($add_to_cart);
 
-        $group.each(function(i, item) {
-            var $item = $(item);
-            $group[i].$options = $item.find('.option-value');
-            setupClickHandler($group[i].$options);
-        });
+            $group.each(function(i, item) {
+                var $item = $(item);
+                $group[i].$options = $item.find('.option-value');
+                setupClickHandler($group[i].$options);
+            });
+        }
+
     });
 
     function setupClickHandler($elem) {
