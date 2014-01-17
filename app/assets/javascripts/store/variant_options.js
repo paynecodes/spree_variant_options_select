@@ -1,154 +1,188 @@
 (function ($, window, document, undefined) {
     'use strict';
 
-    // Utils
+    // attach the .compare method to Array's prototype to call it on any array
+    Array.prototype.compare = function (array) {
+        // if the other array is a falsy value, return
+        if (!array)
+            return false;
 
-    // Find the intersection of two arrays
-    function intersection(a, b) {
-      var ai=0, bi=0;
-      var result = new Array();
+        // compare lengths - can save a lot of time
+        if (this.length != array.length)
+            return false;
 
-      while( ai < a.length && bi < b.length ) {
-         if (a[ai] < b[bi] ){ ai++; }
-         else if (a[ai] > b[bi] ){ bi++; }
-         else {
-           result.push(a[ai]);
-           ai++;
-           bi++;
-         }
-      }
+        for (var i = 0, l=this.length; i < l; i++) {
+            // Check if we have nested arrays
+            if (this[i] instanceof Array && array[i] instanceof Array) {
+                // recurse into the nested arrays
+                if (!this[i].compare(array[i]))
+                    return false;
+            }
+            else if (this[i] != array[i]) {
+                // Warning - two different object instances will never be equal: {x:20} != {x:20}
+                return false;
+            }
+        }
+        return true;
+    };
 
-      return result;
-    }
-
-    // Flatten an array
-    // http://stackoverflow.com/questions/10865025/merge-flatten-an-array-of-arrays-in-javascript#comment14154801_10865025
-    function flatten(arr) {
-        return $.map(arr, function (i) { return i });
-    }
-
-    var $group = [],
+    var $add_to_cart = [],
+          $groups = [],
+          $variant_input = [],
           $thumbs = [],
           $main_image = [],
-          $variant_input = [],
-          $add_to_cart = [],
-          variantMatrix = [];
+          variant_matrix = [];
 
     $(document).ready(function() {
-
-        $group = $('.variant-option-values'),
-        $thumbs = $('#product-thumbnails li'),
-        $main_image = $('#main-image'),
-        $variant_input = $('#variant_id');
         $add_to_cart = $('#add-to-cart-button');
+        $groups = $('.variant-option-values');
+        $variant_input = $('#variant_id');
+        $thumbs = $('#product-thumbnails li');
+        $main_image = $('#main-image');
 
-        if ($group.length) {
+        if ($groups.length) {
             disableButton($add_to_cart);
+            setupClickHandler($groups);
 
-            $group.each(function(i, item) {
+            $groups.each(function(i, item) {
                 var $item = $(item);
-                $group[i].$options = $item.find('.option-value');
-                setupClickHandler($group[i].$options);
+                $groups[i].$options = $item.find('.option-value');
             });
         }
-
     });
 
+    // Setup a delegated event, listening on the '$group' for '.option-value' clicks
     function setupClickHandler($elem) {
-        $elem.on('click', handleOptionValueClick);
+        $elem.on('click', '.option-value', handleOptionClick);
     }
 
-    function handleOptionValueClick(e) {
-        var $this = $(this);
-        var group_index = $this.data('group');
+    function handleOptionClick(e) {
+        var $target = $(e.target),
+              group_index = $target.data('group');
 
-        if ($this.hasClass('active')) {
-            var groups_count = $group.length;
-            deactivateButton($this, group_index);
-            updateMatrix($this, group_index, true);
-            for (var i = group_index  + 1; i < groups_count; i++) {
-                updateMatrix($this, i - 1, true);
-                deactivateButton($group[i].$options, group_index);
-                disableButton($group[i].$options);
-            }
+        // See if the button was already 'active'
+        if ($target.hasClass('active')) {
+            // Deactivate the clicked button
+            deactivateButton($target);
+            // Disable the next option value group
+            disableNextGroup(group_index);
+            // Remove from the variant_matrix
+            removeFromMatrix(group_index);
         } else {
-            deactivateButton($group[group_index].$options, group_index);
-            activateButton($this, group_index);
-            updateMatrix($this, group_index, false);
-            enableNextGroup( group_index + 1 );
+            // Deactivate all buttons in the group
+            deactivateButton($groups[group_index].$options);
+            // Activate only the button that was clicked
+            activateButton($target);
+            // Add to the variant_matrix
+            addToMatrix($target, group_index);
+            // Enable the next option value group.
+            // enableNextGroup function will handle whether or not there is another group
+            enableNextGroup(group_index);
+        }
+
+        // On every option value click, we checkout to see if all the options
+        // have been clicked.
+        // If so, add the common variant_id to the hidden input, and
+        // enable the add to cart button.
+        // If not, disable the add to cart button, and remove the
+        // hidden input value.
+        if (variant_matrix.length === $groups.length) {
+            var common_id = getCommonMatrixId(variant_matrix);
+            updateVariantInput(common_id);
+            findPhoto(common_id);
+            enableButton($add_to_cart);
+        } else {
+            updateVariantInput('');
+            disableButton($add_to_cart);
         }
     }
 
-    function enableNextGroup(enable_index) {
-        var $nextGroup = [],
-              flatVariants;
+    function enableNextGroup(current_index) {
+        var new_index = current_index + 1,
+              $next_group = $groups[new_index],
+              keep_in_matrix = false;
 
-        $nextGroup = $group[enable_index];
-        if (typeof $nextGroup !== 'undefined') {
-            enableButton($nextGroup.$options);
-            flatVariants = flatten(variantMatrix);
-            checkAvailability(enable_index, flatVariants);
-        }
-    }
+        // If there is a '$next_group'
+        if (typeof $next_group !== 'undefined') {
+            var $options = $next_group.$options;
 
-    function checkAvailability(group_index, variant_ids) {
-        $group[group_index].$options.each(function(i, elem) {
-            var $elem = $(elem);
-            var intersect = intersection($elem.data('products'), variant_ids);
-            if (intersect.length) enableButton($elem);
-            else disableButton($elem);
-        });
-    }
+            for (var i=0; i < $options.length; i++) {
+                var $current_option = $options.eq(i);
+                var current_option_products = $current_option.data('products');
+                var common_id = getCommonMatrixId([ current_option_products, variant_matrix[current_index] ]);
 
-    function activateButton($btn, group_index) {
-        $btn.addClass('active');
-    }
-
-    function deactivateButton($btn, group_index) {
-        $btn.removeClass('active');
-    }
-
-    function updateMatrix($elem, group_index, remove) {
-        var common_variant_id = false;
-
-        if (typeof remove == 'undefined' || remove === false) {
-            variantMatrix[group_index] = $elem.data('products');
-        } else variantMatrix.splice(group_index, 1);
-
-        // If the matrix contains all the values it needs,
-        // find the common variant id, update the photo, and update the hidden input
-        if (variantMatrix.length === $group.length) {
-            common_variant_id = getCommonMatrixId();
-            findPhoto(common_variant_id);
-            updateVariantInput(common_variant_id);
-        }
-
-        updateAddToCartButton(common_variant_id);
-    }
-
-    function getCommonMatrixId() {
-        var intersect;
-
-        if (variantMatrix.length > 1) {
-            for (var i = 1; i < variantMatrix.length; i++) {
-                intersect = intersection(variantMatrix[i-1], variantMatrix[i]);
+                if ( common_id.length ) {
+                    enableButton($current_option);
+                    if (current_option_products.compare(variant_matrix[new_index])) {
+                        keep_in_matrix = true;
+                    }
+                }
+                else {
+                    disableButton($current_option);
+                    deactivateButton($current_option);
+                }
             }
-        } else intersect = variantMatrix;
 
-        return intersect[0];
+            if (!keep_in_matrix) removeFromMatrix(new_index);
+
+        } else return;
     }
 
-    function updateAddToCartButton(common_variant_id) {
-        if (common_variant_id) enableButton($add_to_cart);
-        else disableButton($add_to_cart);
+    function disableNextGroup(current_index) {
+        var new_index = current_index + 1,
+              $next_group = $groups[new_index];
+
+        // If there is a '$next_group'
+        if (typeof $next_group !== 'undefined') {
+            var $options = $next_group.$options;
+            removeFromMatrix(new_index);
+            deactivateButton($options);
+            disableButton($options);
+        } else return;
     }
 
-    function enableButton($btn) {
-        $btn.prop('disabled', false);
+    function getCommonMatrixId(array_ids) {
+        var first_common = null,
+              common = [];
+
+        for (var i=1; i < array_ids.length; i++) {
+            if (first_common !== null) {
+                common = intersection(array_ids[i], common);
+            } else {
+                first_common = intersection(array_ids[i], array_ids[i-1]);
+                common = first_common;
+            }
+        }
+
+        return common;
     }
 
-    function disableButton($btn) {
-        $btn.prop('disabled', true);
+    function addToMatrix($elem, index) {
+        variant_matrix[index] = $elem.data('products');
+    }
+
+    function removeFromMatrix(index) {
+        variant_matrix.splice(index, 1);
+    }
+
+    function activateButton($elem) {
+        $elem.addClass('active');
+    }
+
+    function deactivateButton($elem) {
+        $elem.removeClass('active');
+    }
+
+    function enableButton($elem) {
+        $elem.prop('disabled', false);
+    }
+
+    function disableButton($elem) {
+        $elem.prop('disabled', true);
+    }
+
+    function updateVariantInput(variant_id) {
+        $variant_input.val(variant_id);
     }
 
     function findPhoto(variant_id) {
@@ -172,8 +206,29 @@
         $tmb.addClass('selected');
     }
 
-    function updateVariantInput(variant_id) {
-        $variant_input.val(variant_id);
+    // Utils
+
+    // Find the intersection of two arrays
+    function intersection(a, b) {
+      var ai=0, bi=0;
+      var result = new Array();
+
+      while( ai < a.length && bi < b.length ) {
+         if (a[ai] < b[bi] ){ ai++; }
+         else if (a[ai] > b[bi] ){ bi++; }
+         else {
+           result.push(a[ai]);
+           ai++;
+           bi++;
+         }
+      }
+      return result;
+    }
+
+    // Flatten an array
+    // http://stackoverflow.com/questions/10865025/merge-flatten-an-array-of-arrays-in-javascript#comment14154801_10865025
+    function flatten(arr) {
+        return $.map(arr, function (i) { return i });
     }
 
 }(jQuery, this, this.document));
