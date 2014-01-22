@@ -60,6 +60,9 @@
         var $target = $(e.target),
               group_index = $target.data('group');
 
+        // Cancel the click if $target is out of stock
+        if ($target.hasClass('out-of-stock')) return false;
+
         // See if the button was already 'active'
         if ($target.hasClass('active')) {
             // Deactivate the clicked button

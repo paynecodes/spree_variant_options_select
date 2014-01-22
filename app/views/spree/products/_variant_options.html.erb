@@ -20,7 +20,7 @@
                     %>
                     <% variant_ids = [] %>
                     <% variants.each do |v| %>
-                        <% (variant_ids ||= []) << v.id %>
+                        <% (variant_ids ||= []) << v.id if v.in_stock? %>
                     <% end %>
                     <% index == 0 ? (disabled = false) : (disabled = true) %>
                     <li><%= button_tag(value.presentation, { :class => classes, :disabled => disabled, :type => 'button', :data => {products: variant_ids, group: index} }) %></li>
