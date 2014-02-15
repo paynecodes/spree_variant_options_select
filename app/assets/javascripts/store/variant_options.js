@@ -148,14 +148,16 @@
         var first_common = null,
               common = [];
 
-        for (var i=1; i < array_ids.length; i++) {
-            if (first_common !== null) {
-                common = intersection(array_ids[i], common);
-            } else {
-                first_common = intersection(array_ids[i], array_ids[i-1]);
-                common = first_common;
+        if (array_ids.length >= 2) {
+            for (var i=1; i < array_ids.length; i++) {
+                if (first_common !== null) {
+                    common = intersection(array_ids[i], common);
+                } else {
+                    first_common = intersection(array_ids[i], array_ids[i-1]);
+                    common = first_common;
+                }
             }
-        }
+        } else common = array_ids[0];
 
         return common;
     }
