@@ -214,20 +214,34 @@
     // Utils
 
     // Find the intersection of two arrays
+    // Adopted from the following jsperf
+    // http://jsperf.com/array-intersection-unsorted
     function intersection(a, b) {
-      var ai=0, bi=0;
-      var result = new Array();
+        var intersection = [];
+        var as = a.slice(0).sort(compareNumbers);
+        var bs = b.slice(0).sort(compareNumbers);
 
-      while( ai < a.length && bi < b.length ) {
-         if (a[ai] < b[bi] ){ ai++; }
-         else if (a[ai] > b[bi] ){ bi++; }
-         else {
-           result.push(a[ai]);
-           ai++;
-           bi++;
-         }
-      }
-      return result;
+        var i = 0,
+             j = 0;
+
+        while (i < as.length && j < bs.length) {
+            if (as[i] === bs[j]) {
+                intersection.push(as[i]);
+                i++;
+                j++;
+            } else if (as[i] > bs[j]) {
+                j++;
+            } else {
+                i++;
+            }
+        }
+
+        return intersection;
+    }
+
+    // for the sorting
+    function compareNumbers(a, b) {
+        return a - b;
     }
 
     // Flatten an array
