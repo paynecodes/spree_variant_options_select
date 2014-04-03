@@ -1,7 +1,11 @@
 SpreeVariantOptionsSelect
 =========================
 
-Introduction goes here.
+Separates the Option Types from the Option Values instead of listing the variants.
+
+It also checks if that combination of option values is available or out of stock.
+
+
 
 Installation
 ------------
